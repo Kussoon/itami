@@ -1798,7 +1798,21 @@ document.addEventListener('click',e=>{
   wheelMode=inside;
   document.querySelector('#wheelHint').textContent=inside?'ホイールで拡大・縮小できます':'地図をクリックするとホイールで拡大・縮小できます';
 },true);
-svg.addEventListener('wheel',e=>{if(!wheelMode)return;e.preventDefault();zoom(Math.exp(e.deltaY*.0015),e.clientX,e.clientY)},{passive:false});let ps=new Map();svg.addEventListener('pointerdown',e=>{ps.set(e.pointerId,{x:e.clientX,y:e.clientY});svg.setPointerCapture(e.pointerId)});svg.addEventListener('pointermove',e=>{let old=ps.get(e.pointerId);if(!old)return;let before=[...ps.values()],now={x:e.clientX,y:e.clientY};ps.set(e.pointerId,now);if(ps.size>1){let after=[...ps.values()],od=Math.hypot(before[0].x-before[1].x,before[0].y-before[1].y),nd=Math.hypot(after[0].x-after[1].x,after[0].y-after[1].y),c={x:(after[0].x+after[1].x)/2,y:(after[0].y+after[1].y)/2};if(od&&nd)zoom(od/nd,c.x,c.y)}else{let a=pt(old.x,old.y),b=pt(now.x,now.y);box.x+=a.x-b.x;box.y+=a.y-b.y;draw()}});['pointerup','pointercancel'].forEach(n=>svg.addEventListener(n,e=>ps.delete(e.pointerId)));draw();addEventListener('resize',draw);
+svg.addEventListener('wheel',e=>{if(!wheelMode)return;e.preventDefault();zoom(Math.exp(e.deltaY*.0015),e.clientX,e.clientY)},{passive:false});let ps=new Map(),gestureStart=null,suppressTownClick=false;
+svg.addEventListener('pointerdown',e=>{
+  if(!ps.size){gestureStart={x:e.clientX,y:e.clientY};suppressTownClick=false}
+  ps.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(ps.size>1){suppressTownClick=true;for(const id of ps.keys())svg.setPointerCapture(id)}
+});
+svg.addEventListener('click',e=>{
+  if(suppressTownClick)return;
+  const town=e.target.closest('.town[data-name]');
+  if(!town||!svg.contains(town))return;
+  const item=SEARCH_INDEX.find(x=>x.name===town.dataset.name);
+  if(item)selectTown(item);
+});
+svg.addEventListener('pointermove',e=>{let old=ps.get(e.pointerId);if(!old)return;
+  if(!suppressTownClick&&gestureStart&&Math.hypot(e.clientX-gestureStart.x,e.clientY-gestureStart.y)>3){suppressTownClick=true;svg.setPointerCapture(e.pointerId)}let before=[...ps.values()],now={x:e.clientX,y:e.clientY};ps.set(e.pointerId,now);if(ps.size>1){let after=[...ps.values()],od=Math.hypot(before[0].x-before[1].x,before[0].y-before[1].y),nd=Math.hypot(after[0].x-after[1].x,after[0].y-after[1].y),c={x:(after[0].x+after[1].x)/2,y:(after[0].y+after[1].y)/2};if(od&&nd)zoom(od/nd,c.x,c.y)}else{let a=pt(old.x,old.y),b=pt(now.x,now.y);box.x+=a.x-b.x;box.y+=a.y-b.y;draw()}});['pointerup','pointercancel'].forEach(n=>svg.addEventListener(n,e=>ps.delete(e.pointerId)));draw();addEventListener('resize',draw);
 </script>
 </body>
 </html>
